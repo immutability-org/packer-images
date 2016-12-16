@@ -1,0 +1,10 @@
+**/.env
+**/*.crt
+*.crt
+**/*.key
+*.key
+**/*.log
+*.log
+.vagrant
+.DS_Store
+**/.DS_Store

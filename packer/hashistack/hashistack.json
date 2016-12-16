@@ -1,0 +1,89 @@
+{
+  "variables": {
+    "aws_access_key":    "{{env `AWS_ACCESS_KEY_ID`}}",
+    "aws_secret_key":    "{{env `AWS_SECRET_ACCESS_KEY`}}",
+    "aws_private_key_name":      "{{env `AWS_PRIVATE_KEY_NAME`}}",
+    "aws_private_key_location":  "{{env `AWS_PRIVATE_KEY_LOC`}}",
+    "aws_region":        "{{env `DEFAULT_REGION_NAME`}}",
+    "aws_source_ami":    "{{env `DEFAULT_AMI_ID`}}",
+    "name":              "{{env `DEFAULT_AMI_NAME`}}",
+    "subnet_id":         "{{env `DEFAULT_SUBNET_ID`}}",
+    "vpc_id":            "{{env `DEFAULT_VPC_ID`}}",
+    "instance_type":     "{{env `DEFAULT_INSTANCE_TYPE`}}",
+    "security_group_id": "",
+    "scripts_dir":       "scripts",
+    "config_dir":        "config",
+    "ssh_username":      "ubuntu",
+    "dns_listen_addr":   "{{env `DNS_LISTEN_ADDR`}}"
+  },
+  "builders": [
+    {
+      "type":              "amazon-ebs",
+      "access_key":        "{{user `aws_access_key`}}",
+      "secret_key":        "{{user `aws_secret_key`}}",
+      "region":            "{{user `aws_region`}}",
+      "vpc_id":            "{{user `vpc_id`}}",
+      "subnet_id":         "{{user `subnet_id`}}",
+      "security_group_id": "{{user `security_group_id`}}",
+      "source_ami":        "{{user `aws_source_ami`}}",
+      "instance_type":     "{{user `instance_type`}}",
+      "ssh_username":      "{{user `ssh_username`}}",
+      "ami_name":          "{{user `name`}}-{{timestamp}}",
+      "ami_virtualization_type": "hvm",
+      "ami_description":   "packer-{{user `name`}}-ami",
+      "ssh_private_ip":    false,
+      "ssh_keypair_name":  "{{user `aws_private_key_name`}}",
+      "ssh_private_key_file":  "{{user `aws_private_key_location`}}",
+      "associate_public_ip_address": false,
+      "tags": {
+        "artifact": "{{user `name`}}"
+      }
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "execute_command": "echo {{user `ssh_username`}} | {{ .Vars }} sudo -E -S sh '{{ .Path }}'",
+      "inline": [
+        "mkdir -p /ops/{{user `scripts_dir`}}",
+        "chmod a+w /ops/{{user `scripts_dir`}}",
+        "mkdir -p /ops/{{user `config_dir`}}",
+        "chmod a+w /ops/{{user `config_dir`}}"
+      ]
+    },
+    {
+      "type": "file",
+      "source": "{{user `scripts_dir`}}/.",
+      "destination": "/ops/{{user `scripts_dir`}}"
+    },
+    {
+      "type": "file",
+      "source": "{{user `config_dir`}}/.",
+      "destination": "/ops/{{user `config_dir`}}"
+    },
+    {
+      "type": "shell",
+      "execute_command": "echo {{user `ssh_username`}} | {{ .Vars }} sudo -E -S sh '{{ .Path }}'",
+      "inline": [
+        "sleep 30",
+        "sh /ops/{{user `scripts_dir`}}/dependencies.sh",
+        "sh /ops/{{user `scripts_dir`}}/dnsmasq.sh {{user `dns_listen_addr`}}",
+        "sh /ops/{{user `scripts_dir`}}/keybase.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sh /ops/{{user `scripts_dir`}}/install_hashistack.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "execute_command": "echo {{user `ssh_username`}} | {{ .Vars }} sudo -E -S sh '{{ .Path }}'",
+      "inline": [
+        "sleep 30",
+        "sh /ops/{{user `scripts_dir`}}/cleanup.sh"
+      ]
+    }
+  ]
+}
